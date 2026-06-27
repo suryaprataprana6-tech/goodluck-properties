@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get("status");
 
     // Fetch leads
-    const leads = getLeads();
+    const leads = await getLeads();
 
     // Apply filtering matching the CRM dashboard parameters
     const filteredLeads = leads.filter((lead) => {

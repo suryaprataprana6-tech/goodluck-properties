@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function SettingsPage() {
-  const settings = getSettings();
-  const initialLogs = getLogs();
+export default async function SettingsPage() {
+  const settings = await getSettings();
+  const initialLogs = await getLogs();
   
   // Sort logs by date descending (most recent first)
   const sortedLogs = [...initialLogs].sort(

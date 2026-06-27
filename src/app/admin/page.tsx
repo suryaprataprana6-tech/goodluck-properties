@@ -11,8 +11,8 @@ export const metadata: Metadata = {
 // Force dynamic rendering to fetch fresh leads on every load
 export const dynamic = "force-dynamic";
 
-export default function AdminPage() {
-  const leads = getLeads();
+export default async function AdminPage() {
+  const leads = await getLeads();
   
   // Sort leads by date descending initially
   const sortedLeads = [...leads].sort(

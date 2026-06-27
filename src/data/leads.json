@@ -10,5 +10,17 @@
     "submittedAt": "2026-06-27T14:20:44.524Z",
     "sourcePage": "Pipeline Verification Test Script",
     "status": "New"
+  },
+  {
+    "id": "lead_test_auto_1782573927489",
+    "name": "Test Lead",
+    "phone": "9999999999",
+    "email": "test-auto@example.com",
+    "propertyInterest": "Nimbus Palm Village",
+    "budget": "Varies / Auto Test",
+    "message": "Automatic verification of lead pipeline",
+    "submittedAt": "2026-06-27T15:25:27.492Z",
+    "sourcePage": "Auto Test Pipeline Verification",
+    "status": "New"
   }
 ]

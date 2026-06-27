@@ -25,6 +25,7 @@ export async function submitLeadAction(
   prevState: unknown,
   formData: FormData
 ): Promise<LeadSubmissionResponse> {
+  console.log("📥 [Form Received]: Processing form fields for submission...");
   try {
     // 1. Honeypot check for spam protection
     const honeypot = formData.get("honeypot") as string;
@@ -75,7 +76,7 @@ export async function submitLeadAction(
     }
 
     // 4. Save to CRM database
-    const lead = saveLead({
+    const lead = await saveLead({
       name,
       phone: phoneClean,
       email,
@@ -85,10 +86,11 @@ export async function submitLeadAction(
       sourcePage,
     });
 
-    console.log(`✅ [CRM System] Lead captured successfully: ${lead.name} (${lead.id})`);
+    console.log(`✅ [Lead Saved]: Lead saved successfully with ID: ${lead.id}`);
 
     // 5. Instantly Send Email Notification
     await sendLeadEmailNotification(lead);
+    console.log("📧 [Email Sent]: Email dispatcher called successfully.");
 
     // 6. Generate WhatsApp Link for Direct WhatsApp Notifications
     const waText = `🚨 *New Property Lead Received*
@@ -104,7 +106,6 @@ export async function submitLeadAction(
 🕒 *Date*: ${new Date(lead.submittedAt).toLocaleString("en-IN")}
 `;
 
-    // WhatsApp API redirect link
     const whatsappUrl = `https://wa.me/919315381500?text=${encodeURIComponent(waText)}`;
 
     return {
@@ -130,7 +131,7 @@ export async function updateLeadStatusAction(
   newStatus: Lead["status"]
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const success = updateLeadStatus(leadId, newStatus);
+    const success = await updateLeadStatus(leadId, newStatus);
     if (!success) {
       return { success: false, message: "Lead not found." };
     }
@@ -145,7 +146,7 @@ export async function updateLeadStatusAction(
  * Fetches dynamic credentials settings
  */
 export async function getSettingsAction(): Promise<Settings> {
-  return getSettings();
+  return await getSettings();
 }
 
 /**
@@ -155,7 +156,7 @@ export async function saveSettingsAction(
   settings: Settings
 ): Promise<{ success: boolean; message: string }> {
   try {
-    saveSettings(settings);
+    await saveSettings(settings);
     return { success: true, message: "Settings saved successfully." };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error);
@@ -169,14 +170,15 @@ export async function saveSettingsAction(
 export async function sendTestEmailAction(
   settings: Settings
 ): Promise<{ success: boolean; message: string }> {
-  return sendTestEmail(settings.web3FormsKey);
+  return await sendTestEmail(settings.web3FormsKey);
 }
 
 /**
  * Returns pipeline delivery log entries
  */
 export async function getPipelineLogsAction(): Promise<PipelineLog[]> {
-  return [...getLogs()].sort(
+  const logs = await getLogs();
+  return [...logs].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
 }
