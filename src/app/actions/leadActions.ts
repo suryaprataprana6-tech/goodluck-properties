@@ -1,9 +1,18 @@
 "use server";
 
 import { headers } from "next/headers";
-import { saveLead, updateLeadStatus, Lead } from "@/lib/db";
-import { syncLeadToGoogleSheets } from "@/lib/sheets";
-import { sendLeadEmailNotification } from "@/lib/mailer";
+import {
+  saveLead,
+  updateLeadStatus,
+  Lead,
+  getSettings,
+  saveSettings,
+  getLogs,
+  PipelineLog,
+  Settings,
+} from "@/lib/db";
+import { syncLeadToGoogleSheets, testGoogleSheetsConnection } from "@/lib/sheets";
+import { sendLeadEmailNotification, testSMTPConnection } from "@/lib/mailer";
 import { isRateLimited } from "@/lib/rateLimit";
 
 interface LeadSubmissionResponse {
@@ -86,7 +95,6 @@ export async function submitLeadAction(
     await sendLeadEmailNotification(lead);
 
     // 7. Generate WhatsApp Link for Direct WhatsApp Notifications
-    // Triggers notification send out to 9315381500 & 9582505055 via pre-filled text
     const waText = `🚨 *New Property Lead Received*
 
 👤 *Name*: ${lead.name}
@@ -119,7 +127,7 @@ export async function submitLeadAction(
 }
 
 /**
- * Updates a lead status record (New, Contacted, Site Visit Scheduled, Follow Up, Converted)
+ * Updates a lead status record
  */
 export async function updateLeadStatusAction(
   leadId: string,
@@ -135,4 +143,57 @@ export async function updateLeadStatusAction(
     console.error("❌ Action status update error:", error);
     return { success: false, message: "Could not update status." };
   }
+}
+
+/**
+ * Fetches dynamic credentials settings
+ */
+export async function getSettingsAction(): Promise<Settings> {
+  return getSettings();
+}
+
+/**
+ * Saves dynamic credentials settings
+ */
+export async function saveSettingsAction(
+  settings: Settings
+): Promise<{ success: boolean; message: string }> {
+  try {
+    saveSettings(settings);
+    return { success: true, message: "Settings saved successfully." };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    return { success: false, message: `Failed to save settings: ${errorMsg}` };
+  }
+}
+
+/**
+ * Validates connections for SMTP & Sheets API
+ */
+export async function testConnectionsAction(
+  settings: Settings
+): Promise<{
+  smtp: { success: boolean; message: string };
+  sheets: { success: boolean; message: string };
+}> {
+  const smtpRes = await testSMTPConnection(settings.smtpEmail, settings.smtpAppPassword);
+  const sheetsRes = await testGoogleSheetsConnection(
+    settings.googleSheetId,
+    settings.googleServiceAccountEmail,
+    settings.googlePrivateKey
+  );
+
+  return {
+    smtp: smtpRes,
+    sheets: sheetsRes,
+  };
+}
+
+/**
+ * Returns pipeline delivery log entries
+ */
+export async function getPipelineLogsAction(): Promise<PipelineLog[]> {
+  return [...getLogs()].sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 }

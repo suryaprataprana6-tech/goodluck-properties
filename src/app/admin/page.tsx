@@ -35,12 +35,21 @@ export default function AdminPage() {
               Real-time lead collection, conversion status updates, and spreadsheet export desk.
             </p>
           </div>
-          <Link
-            href="/"
-            className="text-xs text-luxury-gold hover:text-white hover:underline flex items-center"
-          >
-            ← Back to Homepage
-          </Link>
+          <div className="flex items-center gap-4 text-xs font-semibold">
+            <Link
+              href="/admin/settings"
+              className="text-slate-300 hover:text-luxury-gold hover:underline flex items-center"
+            >
+              ⚙ Pipeline Settings
+            </Link>
+            <span className="text-slate-500">|</span>
+            <Link
+              href="/"
+              className="text-luxury-gold hover:text-white hover:underline flex items-center"
+            >
+              ← Back to Homepage
+            </Link>
+          </div>
         </div>
 
         {/* Client Interactive Dashboard Wrapper */}
