@@ -32,9 +32,10 @@ export async function sendLeadEmailNotification(lead: Lead): Promise<boolean> {
       date: formattedDate,
     };
 
-    console.log(`🚀 [Web3Forms Sync] Submitting lead: ${lead.name} to Web3Forms API...`);
+    const targetUrl = "https://api.web3forms.com/submit";
+    console.log(`🚀 [Web3Forms Sync] Submitting lead to URL: ${targetUrl}...`);
 
-    const response = await fetch("https://api.web3forms.com/submit", {
+    const response = await fetch(targetUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -43,8 +44,26 @@ export async function sendLeadEmailNotification(lead: Lead): Promise<boolean> {
       body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
-    console.log("📬 [Web3Forms Response]:", result);
+    const contentType = response.headers.get("content-type") || "";
+    const rawText = await response.text();
+
+    console.log(`🌐 [Web3Forms Sync Log] URL: ${targetUrl}`);
+    console.log(`🌐 [Web3Forms Sync Log] HTTP Status: ${response.status}`);
+    console.log(`🌐 [Web3Forms Sync Log] Content-Type: ${contentType}`);
+    console.log(`🌐 [Web3Forms Sync Log] Raw Response: ${rawText}`);
+
+    if (!contentType.includes("application/json")) {
+      console.error("❌ Web3Forms API returned non-JSON response:", rawText);
+      await addLog(
+        lead.id,
+        toEmail,
+        "failure",
+        `Web3Forms API returned non-JSON response (Status ${response.status}). Raw: ${rawText.slice(0, 200)}`
+      );
+      return false;
+    }
+
+    const result = JSON.parse(rawText);
 
     if (result.success) {
       console.log(`📧 Lead email notification dispatched via Web3Forms successfully to ${toEmail}`);
@@ -88,7 +107,10 @@ export async function sendTestEmail(
       message: "This is a test submission verifying your Web3Forms CRM integration.",
     };
 
-    const response = await fetch("https://api.web3forms.com/submit", {
+    const targetUrl = "https://api.web3forms.com/submit";
+    console.log(`🚀 [Web3Forms Test Sync] Submitting test lead to URL: ${targetUrl}...`);
+
+    const response = await fetch(targetUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -97,8 +119,24 @@ export async function sendTestEmail(
       body: JSON.stringify(payload),
     });
 
-    const result = await response.json();
-    console.log("📬 [Web3Forms Test Response]:", result);
+    const contentType = response.headers.get("content-type") || "";
+    const rawText = await response.text();
+
+    console.log(`🌐 [Web3Forms Test Log] URL: ${targetUrl}`);
+    console.log(`🌐 [Web3Forms Test Log] HTTP Status: ${response.status}`);
+    console.log(`🌐 [Web3Forms Test Log] Content-Type: ${contentType}`);
+    console.log(`🌐 [Web3Forms Test Log] Raw Response: ${rawText}`);
+
+    if (!contentType.includes("application/json")) {
+      console.error("❌ Web3Forms API returned non-JSON response:", rawText);
+      await addLog("TEST_RUN", toEmail, "failure", `Web3Forms API returned non-JSON (Status ${response.status}).`);
+      return {
+        success: false,
+        message: `Web3Forms API returned non-JSON response (Status ${response.status}). Raw: ${rawText.slice(0, 150)}`,
+      };
+    }
+
+    const result = JSON.parse(rawText);
 
     if (result.success) {
       await addLog("TEST_RUN", toEmail, "success", "Web3Forms Test email dispatched successfully.");
