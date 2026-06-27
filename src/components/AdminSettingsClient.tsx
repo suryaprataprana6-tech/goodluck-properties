@@ -111,40 +111,27 @@ export default function AdminSettingsClient({
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
         {/* Left Side: Config Panel */}
         <form onSubmit={handleSave} className="lg:col-span-7 space-y-6">
-          {/* SMTP Card */}
+          {/* Web3Forms Config Card */}
           <div className="glass p-6 rounded-2xl border-white/5 space-y-4">
             <h3 className="font-serif text-lg font-semibold text-white flex items-center gap-2 border-b border-white/5 pb-3">
               <Mail className="w-5 h-5 text-luxury-gold" />
-              Gmail SMTP Mailer Config
+              Web3Forms API Mailer Config
             </h3>
             
             <div className="grid grid-cols-1 gap-4">
               <div>
                 <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1.5">
-                  SMTP Username (Sender Gmail Address)
-                </label>
-                <input
-                  type="email"
-                  placeholder="e.g. SMTP_EMAIL=name@gmail.com"
-                  value={settings.smtpEmail}
-                  onChange={(e) => setSettings({ ...settings, smtpEmail: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg glass-input text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1.5">
-                  SMTP App Password
+                  Web3Forms Access Key
                 </label>
                 <input
                   type="password"
-                  placeholder="e.g. SMTP_PASSWORD=16-character code"
-                  value={settings.smtpAppPassword}
-                  onChange={(e) => setSettings({ ...settings, smtpAppPassword: e.target.value })}
+                  placeholder="e.g. your-free-access-key-here"
+                  value={settings.web3FormsKey}
+                  onChange={(e) => setSettings({ ...settings, web3FormsKey: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg glass-input text-xs"
                 />
-                <span className="text-[10px] text-slate-400 mt-1.5 block font-light leading-relaxed">
-                  Tip: Generate a 16-character code in Google Account Security settings. If left blank, Nodemailer defaults to environment variables (<code>SMTP_EMAIL</code> and <code>SMTP_PASSWORD</code>).
+                <span className="text-[10px] text-slate-400 mt-2 block font-light leading-relaxed">
+                  Tip: Get a free Access Key by entering your email (<code>goodluckproperties682@gmail.com</code>) at <a href="https://web3forms.com/" target="_blank" rel="noopener noreferrer" className="text-luxury-gold hover:underline">web3forms.com</a>. If left blank, it defaults to the <code>WEB3FORMS_ACCESS_KEY</code> environment variable.
                 </span>
               </div>
             </div>

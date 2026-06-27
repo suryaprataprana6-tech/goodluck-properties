@@ -15,8 +15,7 @@ export interface Lead {
 }
 
 export interface Settings {
-  smtpEmail: string;
-  smtpAppPassword: string;
+  web3FormsKey: string;
 }
 
 export interface PipelineLog {
@@ -44,8 +43,7 @@ function initializeDB() {
   }
   if (!fs.existsSync(SETTINGS_PATH)) {
     const defaultSettings: Settings = {
-      smtpEmail: "",
-      smtpAppPassword: "",
+      web3FormsKey: "",
     };
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(defaultSettings, null, 2), "utf-8");
   }
@@ -110,8 +108,7 @@ export function getSettings(): Settings {
   } catch (error) {
     console.error("Settings read error, returning blank:", error);
     return {
-      smtpEmail: "",
-      smtpAppPassword: "",
+      web3FormsKey: "",
     };
   }
 }

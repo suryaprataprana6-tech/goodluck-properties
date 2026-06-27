@@ -169,7 +169,7 @@ export async function saveSettingsAction(
 export async function sendTestEmailAction(
   settings: Settings
 ): Promise<{ success: boolean; message: string }> {
-  return sendTestEmail(settings.smtpEmail, settings.smtpAppPassword);
+  return sendTestEmail(settings.web3FormsKey);
 }
 
 /**
