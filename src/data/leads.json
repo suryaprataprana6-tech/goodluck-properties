@@ -1,0 +1,14 @@
+[
+  {
+    "id": "lead_test_1782570044524",
+    "name": "Test User",
+    "phone": "9999999999",
+    "email": "test@example.com",
+    "propertyInterest": "Nimbus Palm Village",
+    "budget": "Varies / Priority Offer Unlock",
+    "message": "Test Lead submission for pipeline verification",
+    "submittedAt": "2026-06-27T14:20:44.524Z",
+    "sourcePage": "Pipeline Verification Test Script",
+    "status": "New"
+  }
+]

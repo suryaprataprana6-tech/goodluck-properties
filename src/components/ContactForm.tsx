@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Phone, Calendar, Clock, MapPin, Mail, MessageSquare } from "lucide-react";
 import { motion } from "framer-motion";
+import { submitLeadAction } from "@/app/actions/leadActions";
 
 interface ContactFormProps {
   selectedProject?: string;
@@ -27,26 +28,52 @@ export default function ContactForm({ selectedProject = "Imperial Crown" }: Cont
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
       alert("Please fill in your name and phone number.");
       return;
     }
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      const data = new FormData();
+      data.append("name", formData.name);
+      data.append("phone", formData.phone);
+      data.append("email", formData.email);
+      data.append("project", formData.project);
+      data.append("budget", "Varies / Site Visit Requested");
+      data.append(
+        "message",
+        `[Site Visit Requested] Date: ${formData.visitDate}. Client Message: ${formData.message}`
+      );
+      data.append("sourcePage", "Homepage (Site Visit Scheduler Form)");
+      data.append("honeypot", (e.currentTarget.elements.namedItem("honeypot") as HTMLInputElement)?.value || "");
+
+      const res = await submitLeadAction(null, data);
+      
+      if (res.success) {
+        setIsSubmitted(true);
+        setFormData({
+          name: "",
+          phone: "",
+          email: "",
+          project: "Imperial Crown",
+          visitDate: "",
+          message: "",
+        });
+        if (res.whatsappUrl) {
+          window.open(res.whatsappUrl, "_blank");
+        }
+      } else {
+        alert(res.message);
+      }
+    } catch (err) {
+      console.error("Contact Form submission error:", err);
+      alert("Submission error. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      setIsSubmitted(true);
-      setFormData({
-        name: "",
-        phone: "",
-        email: "",
-        project: "Imperial Crown",
-        visitDate: "",
-        message: "",
-      });
-    }, 1500);
+    }
   };
 
   return (
@@ -190,6 +217,7 @@ export default function ContactForm({ selectedProject = "Imperial Crown" }: Cont
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  <input type="text" name="honeypot" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1">

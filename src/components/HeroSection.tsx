@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Phone, Calendar, ArrowRight, MessageCircle, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
+import { submitLeadAction } from "@/app/actions/leadActions";
 
 interface HeroSectionProps {
   onScheduleVisit: () => void;
@@ -18,19 +19,41 @@ export default function HeroSection({ onScheduleVisit }: HeroSectionProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
       alert("Please fill in your name and phone number.");
       return;
     }
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      const data = new FormData();
+      data.append("name", formData.name);
+      data.append("phone", formData.phone);
+      data.append("project", formData.propertyType);
+      data.append("budget", formData.budget);
+      data.append("message", "Callback request from main Hero form.");
+      data.append("sourcePage", "Homepage (Hero Section)");
+      data.append("honeypot", (e.currentTarget.elements.namedItem("honeypot") as HTMLInputElement)?.value || "");
+
+      const res = await submitLeadAction(null, data);
+      
+      if (res.success) {
+        setIsSubmitted(true);
+        setFormData({ name: "", phone: "", propertyType: "apartment", budget: "1.5cr-3cr" });
+        if (res.whatsappUrl) {
+          window.open(res.whatsappUrl, "_blank");
+        }
+      } else {
+        alert(res.message);
+      }
+    } catch (err) {
+      console.error("Hero form submission error:", err);
+      alert("Submission error. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      setIsSubmitted(true);
-      setFormData({ name: "", phone: "", propertyType: "apartment", budget: "1.5cr-3cr" });
-    }, 1500);
+    }
   };
 
   return (
@@ -167,6 +190,7 @@ export default function HeroSection({ onScheduleVisit }: HeroSectionProps) {
                 </motion.div>
               ) : (
                 <form onSubmit={handleSubmit} className="space-y-4">
+                  <input type="text" name="honeypot" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
                   <div>
                     <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1">
                       Full Name

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { X, ShieldCheck, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { submitLeadAction } from "@/app/actions/leadActions";
 
 export default function LeadPopup() {
   const [isOpen, setIsOpen] = useState(false);
@@ -15,11 +16,9 @@ export default function LeadPopup() {
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
-    // Check if the popup has been dismissed during this session
     const isDismissed = sessionStorage.getItem("lead-popup-dismissed");
     if (isDismissed) return;
 
-    // Show popup after 15 seconds
     const timer = setTimeout(() => {
       setIsOpen(true);
     }, 15000);
@@ -32,22 +31,46 @@ export default function LeadPopup() {
     setIsOpen(false);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!formData.name || !formData.phone) {
       alert("Please fill in all fields.");
       return;
     }
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
+    
+    try {
+      const data = new FormData();
+      data.append("name", formData.name);
+      data.append("phone", formData.phone);
+      data.append("email", "N/A");
+      data.append("project", formData.project);
+      data.append("budget", "Varies / Priority Offer Unlock");
+      data.append("message", "VIP Priority Allocation Request");
+      data.append("sourcePage", "Homepage (15-Second Delayed Lead Popup Modal)");
+      data.append("honeypot", (e.currentTarget.elements.namedItem("honeypot") as HTMLInputElement)?.value || "");
+
+      const res = await submitLeadAction(null, data);
+      
+      if (res.success) {
+        setIsSubmitted(true);
+        setFormData({ name: "", phone: "", project: "Nimbus The Palm Village" });
+        sessionStorage.setItem("lead-popup-dismissed", "true");
+        if (res.whatsappUrl) {
+          window.open(res.whatsappUrl, "_blank");
+        }
+        setTimeout(() => {
+          setIsOpen(false);
+        }, 2500);
+      } else {
+        alert(res.message);
+      }
+    } catch (err) {
+      console.error("Popup form submission error:", err);
+      alert("Submission error. Please try again.");
+    } finally {
       setIsSubmitting(false);
-      setIsSubmitted(true);
-      sessionStorage.setItem("lead-popup-dismissed", "true");
-      setTimeout(() => {
-        setIsOpen(false);
-      }, 2500);
-    }, 1200);
+    }
   };
 
   return (
@@ -98,6 +121,7 @@ export default function LeadPopup() {
               </motion.div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4 pt-4">
+                <input type="text" name="honeypot" style={{ display: "none" }} tabIndex={-1} autoComplete="off" />
                 <div className="text-center mb-4">
                   <span className="text-[10px] tracking-[0.2em] text-luxury-gold uppercase font-bold mb-1 block">
                     Limited Period Offer
