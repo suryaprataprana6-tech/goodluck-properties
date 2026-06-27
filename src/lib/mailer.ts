@@ -71,14 +71,15 @@ export async function sendTestEmail(
   web3FormsKey: string
 ): Promise<{ success: boolean; message: string }> {
   try {
-    if (!web3FormsKey) {
+    const accessKey = web3FormsKey || process.env.WEB3FORMS_ACCESS_KEY;
+    if (!accessKey) {
       return { success: false, message: "Web3Forms Access Key cannot be empty." };
     }
 
     const toEmail = "goodluckproperties682@gmail.com";
 
     const payload = {
-      access_key: web3FormsKey,
+      access_key: accessKey,
       subject: "Goodluck Properties SMTP Test Email",
       from_name: "Goodluck CRM Test",
       name: "CRM Test Bot",

@@ -176,28 +176,37 @@ export async function updateLeadStatus(id: string, status: Lead["status"]): Prom
 
 // Get Settings (Unified)
 export async function getSettings(): Promise<Settings> {
+  let settings: Settings = { web3FormsKey: "" };
+
   if (isKvEnabled()) {
     try {
       const data = await kvRequest(["GET", "goodluck_settings"]);
-      if (!data) return { web3FormsKey: "" };
-      return JSON.parse(data as string) as Settings;
+      if (data) {
+        settings = JSON.parse(data as string) as Settings;
+      }
     } catch (e) {
       console.error("Failed to parse KV settings:", e);
-      return { web3FormsKey: "" };
     }
   } else {
     try {
       initializeLocalDB();
       if (fs.existsSync(SETTINGS_PATH)) {
         const data = fs.readFileSync(SETTINGS_PATH, "utf-8");
-        return JSON.parse(data) as Settings;
+        settings = JSON.parse(data) as Settings;
       }
-      return { web3FormsKey: "" };
     } catch (error) {
       console.error("Settings read error, returning blank:", error);
-      return { web3FormsKey: "" };
     }
   }
+
+  // Pre-fill from environment variable if database value is empty
+  if (!settings.web3FormsKey && process.env.WEB3FORMS_ACCESS_KEY) {
+    settings.web3FormsKey = process.env.WEB3FORMS_ACCESS_KEY;
+  }
+
+  console.log(`🔑 [Settings Loaded] Web3Forms Access Key loaded. Length: ${settings.web3FormsKey ? settings.web3FormsKey.length : 0}`);
+
+  return settings;
 }
 
 // Save Settings (Unified)
