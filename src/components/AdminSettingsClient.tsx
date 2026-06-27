@@ -2,14 +2,13 @@
 
 import { useState } from "react";
 import { Settings, PipelineLog } from "@/lib/db";
-import { saveSettingsAction, testConnectionsAction, getPipelineLogsAction } from "@/app/actions/leadActions";
+import { saveSettingsAction, sendTestEmailAction, getPipelineLogsAction } from "@/app/actions/leadActions";
 import Link from "next/link";
 import {
   Save,
   RefreshCw,
   ArrowLeft,
   Mail,
-  FileSpreadsheet,
   Terminal,
   Activity,
   CheckCircle2,
@@ -32,9 +31,9 @@ export default function AdminSettingsClient({
 
   // Connection Test States
   const [testResult, setTestResult] = useState<{
-    smtp: { success: boolean; message: string } | null;
-    sheets: { success: boolean; message: string } | null;
-  }>({ smtp: null, sheets: null });
+    success: boolean;
+    message: string;
+  } | null>(null);
 
   // Save Settings
   const handleSave = async (e: React.FormEvent) => {
@@ -44,7 +43,6 @@ export default function AdminSettingsClient({
       const res = await saveSettingsAction(settings);
       alert(res.message);
       
-      // Refresh logs list to check if save settings logged anything
       const freshLogs = await getPipelineLogsAction();
       setLogs(freshLogs);
     } catch (error) {
@@ -55,16 +53,20 @@ export default function AdminSettingsClient({
     }
   };
 
-  // Test Connections
+  // Test Connection: Send Test Email
   const handleTest = async () => {
     setIsTesting(true);
-    setTestResult({ smtp: null, sheets: null });
+    setTestResult(null);
     try {
-      const res = await testConnectionsAction(settings);
+      const res = await sendTestEmailAction(settings);
       setTestResult(res);
+      
+      // Reload logs to show test execution log entry
+      const freshLogs = await getPipelineLogsAction();
+      setLogs(freshLogs);
     } catch (error) {
       console.error(error);
-      alert("Error executing connection test.");
+      alert("Error sending test email.");
     } finally {
       setIsTesting(false);
     }
@@ -94,7 +96,7 @@ export default function AdminSettingsClient({
           </Link>
           <h1 className="font-serif text-3xl font-bold text-white mt-3">Pipeline Settings</h1>
           <p className="text-slate-300 text-xs font-light mt-1">
-            Configure SMTP email mailers, spreadsheets APIs, credentials keys, and view pipeline activity logs.
+            Configure SMTP email mailers, app credentials, verify notification delivery, and inspect SMTP transaction logs.
           </p>
         </div>
         <button
@@ -123,7 +125,7 @@ export default function AdminSettingsClient({
                 </label>
                 <input
                   type="email"
-                  placeholder="propertiesgoodluck2024@gmail.com"
+                  placeholder="e.g. SMTP_EMAIL=name@gmail.com"
                   value={settings.smtpEmail}
                   onChange={(e) => setSettings({ ...settings, smtpEmail: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg glass-input text-xs"
@@ -136,63 +138,14 @@ export default function AdminSettingsClient({
                 </label>
                 <input
                   type="password"
-                  placeholder="Enter 16-character Google App Password"
+                  placeholder="e.g. SMTP_PASSWORD=16-character code"
                   value={settings.smtpAppPassword}
                   onChange={(e) => setSettings({ ...settings, smtpAppPassword: e.target.value })}
                   className="w-full px-4 py-2.5 rounded-lg glass-input text-xs"
                 />
-                <span className="text-[10px] text-slate-400 mt-1 block font-light">
-                  Tip: Generate a 16-character code in Google Account Settings &gt; Security &gt; App Passwords.
+                <span className="text-[10px] text-slate-400 mt-1.5 block font-light leading-relaxed">
+                  Tip: Generate a 16-character code in Google Account Security settings. If left blank, Nodemailer defaults to environment variables (<code>SMTP_EMAIL</code> and <code>SMTP_PASSWORD</code>).
                 </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Google Sheets API Card */}
-          <div className="glass p-6 rounded-2xl border-white/5 space-y-4">
-            <h3 className="font-serif text-lg font-semibold text-white flex items-center gap-2 border-b border-white/5 pb-3">
-              <FileSpreadsheet className="w-5 h-5 text-emerald-400" />
-              Google Sheets API Config
-            </h3>
-            
-            <div className="grid grid-cols-1 gap-4">
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1.5">
-                  Spreadsheet ID
-                </label>
-                <input
-                  type="text"
-                  placeholder="Enter target Google Sheet ID"
-                  value={settings.googleSheetId}
-                  onChange={(e) => setSettings({ ...settings, googleSheetId: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg glass-input text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1.5">
-                  Service Account Client Email
-                </label>
-                <input
-                  type="email"
-                  placeholder="name@project-id.iam.gserviceaccount.com"
-                  value={settings.googleServiceAccountEmail}
-                  onChange={(e) => setSettings({ ...settings, googleServiceAccountEmail: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg glass-input text-xs"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[10px] uppercase tracking-widest text-slate-300 font-semibold mb-1.5">
-                  Google Service Account Private Key
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBg...-----END PRIVATE KEY-----"
-                  value={settings.googlePrivateKey}
-                  onChange={(e) => setSettings({ ...settings, googlePrivateKey: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-lg glass-input text-xs font-mono resize-y"
-                />
               </div>
             </div>
           </div>
@@ -215,7 +168,7 @@ export default function AdminSettingsClient({
               className="flex-1 py-3 px-6 rounded-lg border border-luxury-gold/30 hover:border-luxury-gold text-slate-200 hover:bg-luxury-gold/5 font-bold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
             >
               {isTesting ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
-              <span>Verify &amp; Test Connections</span>
+              <span>Send Test Email</span>
             </button>
           </div>
         </form>
@@ -223,50 +176,28 @@ export default function AdminSettingsClient({
         {/* Right Side: Logs & Status Panel */}
         <div className="lg:col-span-5 space-y-6">
           {/* Connection Test Outputs */}
-          {(testResult.smtp || testResult.sheets) && (
+          {testResult && (
             <div className="glass p-6 rounded-2xl border-white/5 space-y-4">
               <h3 className="font-serif text-base font-semibold text-white border-b border-white/5 pb-3">
                 Connection Test Results
               </h3>
               
               <div className="space-y-3.5 text-xs">
-                {/* SMTP Verify */}
-                {testResult.smtp && (
-                  <div className={`p-4 rounded-xl border flex items-start gap-3 ${
-                    testResult.smtp.success 
-                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
-                      : "bg-rose-500/10 border-rose-500/25 text-rose-300"
-                  }`}>
-                    {testResult.smtp.success ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div>
-                      <div className="font-semibold text-slate-200">SMTP Integration</div>
-                      <div className="mt-1 font-light text-[11px] leading-relaxed">{testResult.smtp.message}</div>
-                    </div>
+                <div className={`p-4 rounded-xl border flex items-start gap-3 ${
+                  testResult.success 
+                    ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/25 text-rose-300"
+                }`}>
+                  {testResult.success ? (
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <XCircle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
+                  )}
+                  <div>
+                    <div className="font-semibold text-slate-200">SMTP Integration Test</div>
+                    <div className="mt-1 font-light text-[11px] leading-relaxed">{testResult.message}</div>
                   </div>
-                )}
-
-                {/* Sheets Verify */}
-                {testResult.sheets && (
-                  <div className={`p-4 rounded-xl border flex items-start gap-3 ${
-                    testResult.sheets.success 
-                      ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
-                      : "bg-rose-500/10 border-rose-500/25 text-rose-300"
-                  }`}>
-                    {testResult.sheets.success ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 flex-shrink-0" />
-                    ) : (
-                      <XCircle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
-                    )}
-                    <div>
-                      <div className="font-semibold text-slate-200">Google Sheets Sync API</div>
-                      <div className="mt-1 font-light text-[11px] leading-relaxed">{testResult.sheets.message}</div>
-                    </div>
-                  </div>
-                )}
+                </div>
               </div>
             </div>
           )}
@@ -275,7 +206,7 @@ export default function AdminSettingsClient({
           <div className="glass p-6 rounded-2xl border-white/5 space-y-4">
             <h3 className="font-serif text-base font-semibold text-white flex items-center gap-2 border-b border-white/5 pb-3">
               <Terminal className="w-4 h-4 text-luxury-gold" />
-              Pipeline Delivery Logs
+              Email Delivery Logs
             </h3>
 
             <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
@@ -291,15 +222,15 @@ export default function AdminSettingsClient({
                           ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                           : "bg-rose-500/10 border-rose-500/20 text-rose-400"
                       }`}>
-                        {log.status === "success" ? "SUCCESS" : "FAILED"}
+                        {log.status === "success" ? "DELIVERED" : "FAILED"}
                       </span>
                     </div>
 
                     <div className="text-slate-200">
                       <span className="font-semibold text-luxury-gold-light uppercase tracking-wider text-[9px] mr-1.5">
-                        {log.type === "email" ? "✉ SMTP Mailer" : "📊 Sheets API"}
+                        ✉ SMTP Mailer
                       </span>
-                      Target: <span className="font-mono text-slate-300">{log.recipientOrSheet}</span>
+                      Recipient: <span className="font-mono text-slate-300">{log.recipientOrSheet}</span>
                     </div>
 
                     <div className="text-slate-400 font-light leading-relaxed leading-normal truncate" title={log.message}>

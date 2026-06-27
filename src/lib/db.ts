@@ -17,14 +17,11 @@ export interface Lead {
 export interface Settings {
   smtpEmail: string;
   smtpAppPassword: string;
-  googleSheetId: string;
-  googleServiceAccountEmail: string;
-  googlePrivateKey: string;
 }
 
 export interface PipelineLog {
   id: string;
-  type: "email" | "sheets";
+  type: "email";
   leadId: string;
   recipientOrSheet: string;
   status: "success" | "failure";
@@ -49,9 +46,6 @@ function initializeDB() {
     const defaultSettings: Settings = {
       smtpEmail: "",
       smtpAppPassword: "",
-      googleSheetId: "",
-      googleServiceAccountEmail: "",
-      googlePrivateKey: "",
     };
     fs.writeFileSync(SETTINGS_PATH, JSON.stringify(defaultSettings, null, 2), "utf-8");
   }
@@ -118,9 +112,6 @@ export function getSettings(): Settings {
     return {
       smtpEmail: "",
       smtpAppPassword: "",
-      googleSheetId: "",
-      googleServiceAccountEmail: "",
-      googlePrivateKey: "",
     };
   }
 }
@@ -143,7 +134,6 @@ export function getLogs(): PipelineLog[] {
 }
 
 export function addLog(
-  type: PipelineLog["type"],
   leadId: string,
   recipientOrSheet: string,
   status: PipelineLog["status"],
@@ -154,7 +144,7 @@ export function addLog(
 
   const newLog: PipelineLog = {
     id: `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-    type,
+    type: "email",
     leadId,
     recipientOrSheet,
     status,
@@ -163,8 +153,6 @@ export function addLog(
   };
 
   logs.push(newLog);
-  
-  // Cap logs at 1000 items to prevent file bloat
   const cappedLogs = logs.slice(-1000);
   
   fs.writeFileSync(LOGS_PATH, JSON.stringify(cappedLogs, null, 2), "utf-8");

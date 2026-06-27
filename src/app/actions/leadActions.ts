@@ -11,8 +11,7 @@ import {
   PipelineLog,
   Settings,
 } from "@/lib/db";
-import { syncLeadToGoogleSheets, testGoogleSheetsConnection } from "@/lib/sheets";
-import { sendLeadEmailNotification, testSMTPConnection } from "@/lib/mailer";
+import { sendLeadEmailNotification, sendTestEmail } from "@/lib/mailer";
 import { isRateLimited } from "@/lib/rateLimit";
 
 interface LeadSubmissionResponse {
@@ -75,7 +74,7 @@ export async function submitLeadAction(
       };
     }
 
-    // 4. Save to database
+    // 4. Save to CRM database
     const lead = saveLead({
       name,
       phone: phoneClean,
@@ -88,13 +87,10 @@ export async function submitLeadAction(
 
     console.log(`✅ [CRM System] Lead captured successfully: ${lead.name} (${lead.id})`);
 
-    // 5. Sync to Google Sheets
-    await syncLeadToGoogleSheets(lead);
-
-    // 6. Nodemailer Email Notifications
+    // 5. Instantly Send Email Notification
     await sendLeadEmailNotification(lead);
 
-    // 7. Generate WhatsApp Link for Direct WhatsApp Notifications
+    // 6. Generate WhatsApp Link for Direct WhatsApp Notifications
     const waText = `🚨 *New Property Lead Received*
 
 👤 *Name*: ${lead.name}
@@ -168,25 +164,12 @@ export async function saveSettingsAction(
 }
 
 /**
- * Validates connections for SMTP & Sheets API
+ * Triggers a real SMTP test email
  */
-export async function testConnectionsAction(
+export async function sendTestEmailAction(
   settings: Settings
-): Promise<{
-  smtp: { success: boolean; message: string };
-  sheets: { success: boolean; message: string };
-}> {
-  const smtpRes = await testSMTPConnection(settings.smtpEmail, settings.smtpAppPassword);
-  const sheetsRes = await testGoogleSheetsConnection(
-    settings.googleSheetId,
-    settings.googleServiceAccountEmail,
-    settings.googlePrivateKey
-  );
-
-  return {
-    smtp: smtpRes,
-    sheets: sheetsRes,
-  };
+): Promise<{ success: boolean; message: string }> {
+  return sendTestEmail(settings.smtpEmail, settings.smtpAppPassword);
 }
 
 /**
