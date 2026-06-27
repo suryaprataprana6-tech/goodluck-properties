@@ -26,8 +26,9 @@ export async function submitLeadAction(
   formData: FormData
 ): Promise<LeadSubmissionResponse> {
   console.log("📥 [Form Received]: Processing form fields for submission...");
+
+  // 1. Honeypot check for spam protection
   try {
-    // 1. Honeypot check for spam protection
     const honeypot = formData.get("honeypot") as string;
     if (honeypot && honeypot.trim() !== "") {
       console.log("🚫 Spam submission intercepted via Honeypot check.");
@@ -36,8 +37,12 @@ export async function submitLeadAction(
         message: "Your inquiry has been processed successfully.",
       };
     }
+  } catch (e) {
+    console.error("Honeypot check error (non-fatal):", e);
+  }
 
-    // 2. Client-IP Rate limiting
+  // 2. Client-IP Rate limiting
+  try {
     const headerList = await headers();
     const forwardedFor = headerList.get("x-forwarded-for");
     const clientIp = forwardedFor ? forwardedFor.split(",")[0] : "127.0.0.1";
@@ -49,34 +54,39 @@ export async function submitLeadAction(
         message: "Too many submission attempts. Please try again after 2 minutes.",
       };
     }
+  } catch (e) {
+    console.error("Rate limit check error (non-fatal, proceeding):", e);
+  }
 
-    // 3. Field Extraction & Validation
-    const name = formData.get("name") as string;
-    const phone = formData.get("phone") as string;
-    const email = (formData.get("email") as string) || "N/A";
-    const propertyInterest = (formData.get("project") as string) || "General Query";
-    const budget = (formData.get("budget") as string) || "N/A";
-    const message = (formData.get("message") as string) || "N/A";
-    const sourcePage = (formData.get("sourcePage") as string) || "Goodluck Properties Portal";
+  // 3. Field Extraction & Validation
+  const name = formData.get("name") as string;
+  const phone = formData.get("phone") as string;
+  const email = (formData.get("email") as string) || "N/A";
+  const propertyInterest = (formData.get("project") as string) || "General Query";
+  const budget = (formData.get("budget") as string) || "N/A";
+  const message = (formData.get("message") as string) || "N/A";
+  const sourcePage = (formData.get("sourcePage") as string) || "Goodluck Properties Portal";
 
-    if (!name || !phone) {
-      return {
-        success: false,
-        message: "Full Name and Mobile Number are required.",
-      };
-    }
+  if (!name || !phone) {
+    return {
+      success: false,
+      message: "Full Name and Mobile Number are required.",
+    };
+  }
 
-    // Phone validation
-    const phoneClean = phone.replace(/[^0-9+]/g, "");
-    if (phoneClean.length < 10) {
-      return {
-        success: false,
-        message: "Please enter a valid 10-digit mobile number.",
-      };
-    }
+  // Phone validation
+  const phoneClean = phone.replace(/[^0-9+]/g, "");
+  if (phoneClean.length < 10) {
+    return {
+      success: false,
+      message: "Please enter a valid 10-digit mobile number.",
+    };
+  }
 
-    // 4. Save to CRM database
-    const lead = await saveLead({
+  // 4. Save to CRM database (fault-tolerant)
+  let lead: Lead | null = null;
+  try {
+    lead = await saveLead({
       name,
       phone: phoneClean,
       email,
@@ -85,15 +95,35 @@ export async function submitLeadAction(
       message,
       sourcePage,
     });
-
     console.log(`✅ [Lead Saved]: Lead saved successfully with ID: ${lead.id}`);
+  } catch (dbError) {
+    console.error("❌ [Database Error]: Failed to persist lead (non-fatal):", dbError);
+    // Construct a transient lead object so email notification can still proceed
+    lead = {
+      id: `lead_${Date.now()}_transient`,
+      name,
+      phone: phoneClean,
+      email,
+      propertyInterest,
+      budget,
+      message,
+      submittedAt: new Date().toISOString(),
+      sourcePage,
+      status: "New",
+    };
+    console.log("⚠️ [Fallback]: Created transient lead object for email dispatch.");
+  }
 
-    // 5. Instantly Send Email Notification
-    await sendLeadEmailNotification(lead);
-    console.log("📧 [Email Sent]: Email dispatcher called successfully.");
+  // 5. Send Email Notification via Web3Forms (fault-tolerant)
+  try {
+    const emailSent = await sendLeadEmailNotification(lead);
+    console.log(`📧 [Email Sent]: Dispatcher result = ${emailSent}`);
+  } catch (emailError) {
+    console.error("❌ [Email Error]: Web3Forms dispatch failed (non-fatal):", emailError);
+  }
 
-    // 6. Generate WhatsApp Link for Direct WhatsApp Notifications
-    const waText = `🚨 *New Property Lead Received*
+  // 6. Generate WhatsApp Link
+  const waText = `🚨 *New Property Lead Received*
 
 👤 *Name*: ${lead.name}
 📞 *Mobile*: ${lead.phone}
@@ -106,21 +136,14 @@ export async function submitLeadAction(
 🕒 *Date*: ${new Date(lead.submittedAt).toLocaleString("en-IN")}
 `;
 
-    const whatsappUrl = `https://wa.me/919315381500?text=${encodeURIComponent(waText)}`;
+  const whatsappUrl = `https://wa.me/919315381500?text=${encodeURIComponent(waText)}`;
 
-    return {
-      success: true,
-      message: "Lead submitted successfully. Our agent will contact you shortly.",
-      whatsappUrl,
-      lead,
-    };
-  } catch (error) {
-    console.error("❌ Action submission error:", error);
-    return {
-      success: false,
-      message: "An internal server error occurred. Please try again.",
-    };
-  }
+  return {
+    success: true,
+    message: "Thank you! Our team will contact you shortly.",
+    whatsappUrl,
+    lead,
+  };
 }
 
 /**
@@ -165,7 +188,7 @@ export async function saveSettingsAction(
 }
 
 /**
- * Triggers a real SMTP test email
+ * Triggers a real Web3Forms test email
  */
 export async function sendTestEmailAction(
   settings: Settings

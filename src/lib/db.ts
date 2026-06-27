@@ -63,22 +63,26 @@ async function kvRequest(command: unknown[]): Promise<unknown> {
   }
 }
 
-// Ensure DB directory and files exist (Local mode only)
+// Ensure DB directory and files exist (Local mode only, safe check)
 function initializeLocalDB() {
-  if (!fs.existsSync(DB_DIR)) {
-    fs.mkdirSync(DB_DIR, { recursive: true });
-  }
-  if (!fs.existsSync(LEADS_PATH)) {
-    fs.writeFileSync(LEADS_PATH, JSON.stringify([], null, 2), "utf-8");
-  }
-  if (!fs.existsSync(SETTINGS_PATH)) {
-    const defaultSettings: Settings = {
-      web3FormsKey: "",
-    };
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(defaultSettings, null, 2), "utf-8");
-  }
-  if (!fs.existsSync(LOGS_PATH)) {
-    fs.writeFileSync(LOGS_PATH, JSON.stringify([], null, 2), "utf-8");
+  try {
+    if (!fs.existsSync(DB_DIR)) {
+      fs.mkdirSync(DB_DIR, { recursive: true });
+    }
+    if (!fs.existsSync(LEADS_PATH)) {
+      fs.writeFileSync(LEADS_PATH, JSON.stringify([], null, 2), "utf-8");
+    }
+    if (!fs.existsSync(SETTINGS_PATH)) {
+      const defaultSettings: Settings = {
+        web3FormsKey: "",
+      };
+      fs.writeFileSync(SETTINGS_PATH, JSON.stringify(defaultSettings, null, 2), "utf-8");
+    }
+    if (!fs.existsSync(LOGS_PATH)) {
+      fs.writeFileSync(LOGS_PATH, JSON.stringify([], null, 2), "utf-8");
+    }
+  } catch (error) {
+    console.warn("⚠️ initializeLocalDB skipped or failed (safe on read-only environments):", error);
   }
 }
 
@@ -96,8 +100,11 @@ export async function getLeads(): Promise<Lead[]> {
   } else {
     try {
       initializeLocalDB();
-      const data = fs.readFileSync(LEADS_PATH, "utf-8");
-      return JSON.parse(data) as Lead[];
+      if (fs.existsSync(LEADS_PATH)) {
+        const data = fs.readFileSync(LEADS_PATH, "utf-8");
+        return JSON.parse(data) as Lead[];
+      }
+      return [];
     } catch (error) {
       console.error("Database read error, returning empty list:", error);
       return [];
@@ -120,15 +127,21 @@ export async function saveLead(leadData: Omit<Lead, "id" | "submittedAt" | "stat
     status: "New",
   };
 
-  if (isKvEnabled()) {
-    const leads = await getLeads();
-    leads.push(newLead);
-    await kvRequest(["SET", "goodluck_leads", JSON.stringify(leads)]);
-  } else {
-    initializeLocalDB();
-    const leads = await getLeads();
-    leads.push(newLead);
-    fs.writeFileSync(LEADS_PATH, JSON.stringify(leads, null, 2), "utf-8");
+  try {
+    if (isKvEnabled()) {
+      const leads = await getLeads();
+      leads.push(newLead);
+      await kvRequest(["SET", "goodluck_leads", JSON.stringify(leads)]);
+    } else {
+      initializeLocalDB();
+      const leads = await getLeads();
+      leads.push(newLead);
+      if (fs.existsSync(DB_DIR) || fs.existsSync(LEADS_PATH)) {
+        fs.writeFileSync(LEADS_PATH, JSON.stringify(leads, null, 2), "utf-8");
+      }
+    }
+  } catch (error) {
+    console.error("❌ Failed to save lead to local database (non-fatal fallback):", error);
   }
 
   return newLead;
@@ -136,22 +149,29 @@ export async function saveLead(leadData: Omit<Lead, "id" | "submittedAt" | "stat
 
 // Update Lead Status (Unified)
 export async function updateLeadStatus(id: string, status: Lead["status"]): Promise<boolean> {
-  const leads = await getLeads();
-  const index = leads.findIndex((l) => l.id === id);
+  try {
+    const leads = await getLeads();
+    const index = leads.findIndex((l) => l.id === id);
 
-  if (index === -1) {
+    if (index === -1) {
+      return false;
+    }
+
+    leads[index].status = status;
+
+    if (isKvEnabled()) {
+      await kvRequest(["SET", "goodluck_leads", JSON.stringify(leads)]);
+    } else {
+      initializeLocalDB();
+      if (fs.existsSync(LEADS_PATH)) {
+        fs.writeFileSync(LEADS_PATH, JSON.stringify(leads, null, 2), "utf-8");
+      }
+    }
+    return true;
+  } catch (error) {
+    console.error("❌ Failed to update lead status:", error);
     return false;
   }
-
-  leads[index].status = status;
-
-  if (isKvEnabled()) {
-    await kvRequest(["SET", "goodluck_leads", JSON.stringify(leads)]);
-  } else {
-    initializeLocalDB();
-    fs.writeFileSync(LEADS_PATH, JSON.stringify(leads, null, 2), "utf-8");
-  }
-  return true;
 }
 
 // Get Settings (Unified)
@@ -168,8 +188,11 @@ export async function getSettings(): Promise<Settings> {
   } else {
     try {
       initializeLocalDB();
-      const data = fs.readFileSync(SETTINGS_PATH, "utf-8");
-      return JSON.parse(data) as Settings;
+      if (fs.existsSync(SETTINGS_PATH)) {
+        const data = fs.readFileSync(SETTINGS_PATH, "utf-8");
+        return JSON.parse(data) as Settings;
+      }
+      return { web3FormsKey: "" };
     } catch (error) {
       console.error("Settings read error, returning blank:", error);
       return { web3FormsKey: "" };
@@ -179,11 +202,17 @@ export async function getSettings(): Promise<Settings> {
 
 // Save Settings (Unified)
 export async function saveSettings(settings: Settings): Promise<void> {
-  if (isKvEnabled()) {
-    await kvRequest(["SET", "goodluck_settings", JSON.stringify(settings)]);
-  } else {
-    initializeLocalDB();
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), "utf-8");
+  try {
+    if (isKvEnabled()) {
+      await kvRequest(["SET", "goodluck_settings", JSON.stringify(settings)]);
+    } else {
+      initializeLocalDB();
+      if (fs.existsSync(DB_DIR) || fs.existsSync(SETTINGS_PATH)) {
+        fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), "utf-8");
+      }
+    }
+  } catch (error) {
+    console.error("❌ Failed to save settings to local storage:", error);
   }
 }
 
@@ -201,8 +230,11 @@ export async function getLogs(): Promise<PipelineLog[]> {
   } else {
     try {
       initializeLocalDB();
-      const data = fs.readFileSync(LOGS_PATH, "utf-8");
-      return JSON.parse(data) as PipelineLog[];
+      if (fs.existsSync(LOGS_PATH)) {
+        const data = fs.readFileSync(LOGS_PATH, "utf-8");
+        return JSON.parse(data) as PipelineLog[];
+      }
+      return [];
     } catch (error) {
       console.error("Logs read error, returning empty list:", error);
       return [];
@@ -227,15 +259,21 @@ export async function addLog(
     timestamp: new Date().toISOString(),
   };
 
-  const logs = await getLogs();
-  logs.push(newLog);
-  const cappedLogs = logs.slice(-1000);
+  try {
+    const logs = await getLogs();
+    logs.push(newLog);
+    const cappedLogs = logs.slice(-1000);
 
-  if (isKvEnabled()) {
-    await kvRequest(["SET", "goodluck_logs", JSON.stringify(cappedLogs)]);
-  } else {
-    initializeLocalDB();
-    fs.writeFileSync(LOGS_PATH, JSON.stringify(cappedLogs, null, 2), "utf-8");
+    if (isKvEnabled()) {
+      await kvRequest(["SET", "goodluck_logs", JSON.stringify(cappedLogs)]);
+    } else {
+      initializeLocalDB();
+      if (fs.existsSync(DB_DIR) || fs.existsSync(LOGS_PATH)) {
+        fs.writeFileSync(LOGS_PATH, JSON.stringify(cappedLogs, null, 2), "utf-8");
+      }
+    }
+  } catch (error) {
+    console.error("❌ Failed to save logs to local storage:", error);
   }
   return newLog;
 }
